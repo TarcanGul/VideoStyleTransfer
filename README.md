@@ -1,5 +1,5 @@
-# GifGenerator
-Generates gif given a word
+# Video Style Transfer
+Executing style transfer to a content video and a style image.
 
 # Progress - 1st Week:
 Project outline: style transfer in real time
