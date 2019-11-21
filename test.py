@@ -132,25 +132,25 @@ def getRawData():
     print("   Loading images.")
     print("      Content video URL:  \"%s\"." % CONTENT_IMG_PATH)
     print("      Style image URL:    \"%s\"." % STYLE_IMG_PATH)
-    # cImg = load_img(CONTENT_IMG_PATH)
+    
     cap = cv2.VideoCapture(CONTENT_IMG_PATH)
-    while(True):
-        ret, frame = cap.read()
-        # cv2.imshow('frame',frame)
+    content_frames = [] #For content data
+    transfer_frames = [] #For transfer data
+    imageIsRead = True
+    while imageIsRead:
+        imageIsRead, frame = cap.read()
         frame = imutils.resize(frame, width=500)
         tImg = frame.copy()
-        sImg = load_img(STYLE_IMG_PATH)
-        print("      Images have been loaded.")
-        out.write(frame)
-        return ((frame, CONTENT_IMG_H, CONTENT_IMG_W), (sImg, STYLE_IMG_H, STYLE_IMG_W), (tImg, CONTENT_IMG_H, CONTENT_IMG_W))
-        c = cv2.waitKey(1)
-        if c & 0xFF == ord('q'):
-            break
+        content_frames.append(frame)
+        transfer_frames.append(tImg)   
 
+    sImg = load_img(STYLE_IMG_PATH)
+    print("Images have been loaded.")
+    return ((content_frames, CONTENT_IMG_H, CONTENT_IMG_W), (sImg, STYLE_IMG_H, STYLE_IMG_W), (transfer_frames, CONTENT_IMG_H, CONTENT_IMG_W))
 
-    cap.release()
-    cv2.destroyAllWindows()
-    out.release()
+    #cap.release()
+    #cv2.destroyAllWindows()
+    #out.release()
     # tImg = cImg.copy()
     # sImg = load_img(STYLE_IMG_PATH)
     # print("      Images have been loaded.")
@@ -198,44 +198,40 @@ def styleTransfer(cData, sData, tData):
     contentLayer = outputDict[contentLayerName]
     contentOutput = contentLayer[0, :, :, :]
     genOutput = contentLayer[2, :, :, :]
-    # loss += None   #TODO: implement. ----------------------------
     
-    loss += CONTENT_WEIGHT * contentLoss(contentOutput,genOutput)
-    print("   Calculating style loss.")
-    for layerName in styleLayerNames:
-        # loss += None   #TODO: implement.
-        layer_features = outputDict[layerName]
-        style_reference_features = layer_features[1, :, :, :]
-        combination_features = layer_features[2, :, :, :]
-        sl = styleLoss(style_reference_features, combination_features)
-        loss += (STYLE_WEIGHT / len(styleLayerNames)) * sl        
-
-
-    # loss += None   #TODO: implement.
-    loss += TOTAL_WEIGHT * totalLoss(genTensor)
-    # TODO: Setup gradients or use K.gradients().
-    grads = K.gradients(loss, genTensor)
-    outputs = [loss]
-    outputs += grads
-    global f_outputs
-    f_outputs = K.function([genTensor], outputs)
+    frames_len = len(cData[0]) #cData should contain individual frames
     
+    for i in range(frames_len):
+        loss += CONTENT_WEIGHT * contentLoss(contentOutput,genOutput)
+        for layerName in styleLayerNames:
+            # loss += None   #TODO: implement.
+            layer_features = outputDict[layerName]
+            style_reference_features = layer_features[1, :, :, :]
+            combination_features = layer_features[2, :, :, :]
+            sl = styleLoss(style_reference_features, combination_features)
+            loss += (STYLE_WEIGHT / len(styleLayerNames)) * sl        
 
-    # x = preprocess_image(base_image_path)
-    print("   Beginning transfer.") #This part I'm not sure... 
-    for i in range(TRANSFER_ROUNDS):
-        print("   Step %d." % i)
-        #TODO: perform gradient descent using fmin_l_bfgs_b.
-        cData, tLoss, info = fmin_l_bfgs_b(evaluator.loss, cData.flatten(),
-                                     fprime=evaluator.grads, maxfun=100, maxiter=100, iprint=1)
-        print("      Loss: %f." % tLoss)
-        img = deprocessImage(cData.copy())
-        print(img.shape)
-        # saveFile = "finalOut%d.png" % i  #TODO: Implement.
-        # imsave(saveFile, img)   #Uncomment when everything is working right.
-        out.write(img)
-        # print("      Image saved to \"%s\"." % saveFile)
-    out.release()
+        loss += TOTAL_WEIGHT * totalLoss(genTensor)
+        # TODO: Setup gradients or use K.gradients().
+        grads = K.gradients(loss, genTensor)
+        outputs = [loss]
+        outputs += grads
+        global f_outputs
+        f_outputs = K.function([genTensor], outputs)
+    
+        for i in range(TRANSFER_ROUNDS):
+            print("   Step %d." % i)
+            #TODO: perform gradient descent using fmin_l_bfgs_b.
+            cData, tLoss, info = fmin_l_bfgs_b(evaluator.loss, cData.flatten(),
+                                        fprime=evaluator.grads, maxfun=100, maxiter=100, iprint=1)
+            print("      Loss: %f." % tLoss)
+            img = deprocessImage(cData.copy())
+            print(img.shape)
+            # saveFile = "finalOut%d.png" % i  #TODO: Implement.
+            # imsave(saveFile, img)   #Uncomment when everything is working right.
+            out.write(img)
+            # print("      Image saved to \"%s\"." % saveFile)
+        out.release()
     print("   Transfer complete.")
 
 
