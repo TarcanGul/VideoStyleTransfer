@@ -136,13 +136,13 @@ def getRawData():
     cap = cv2.VideoCapture(CONTENT_IMG_PATH)
     content_frames = [] #For content data
     transfer_frames = [] #For transfer data
-    imageIsRead = True
+    imageIsRead, frame = cap.read()
     while imageIsRead:
-        imageIsRead, frame = cap.read()
         frame = imutils.resize(frame, width=500)
         tImg = frame.copy()
         content_frames.append(frame)
         transfer_frames.append(tImg)   
+        imageIsRead, frame = cap.read()
 
     sImg = load_img(STYLE_IMG_PATH)
     print("Images have been loaded.")
@@ -156,8 +156,6 @@ def getRawData():
     # print("      Images have been loaded.")
     # return ((cImg, CONTENT_IMG_H, CONTENT_IMG_W), (sImg, STYLE_IMG_H, STYLE_IMG_W), (tImg, CONTENT_IMG_H, CONTENT_IMG_W))
 
-
-
 def preprocessData(raw):
     img, ih, iw = raw
     img = img_to_array(img)
@@ -168,6 +166,19 @@ def preprocessData(raw):
     img = np.expand_dims(img, axis=0)
     img = vgg19.preprocess_input(img)
     return img
+
+def preprocessDataBuffer(raw):
+    frames, ih, iw = raw
+    for i in range(len(frames)):
+        frames[i] = img_to_array(frames[i])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            frames[i] = imresize(frames[i] , (ih, iw, 3))
+    
+        frames[i]  = frames[i] .astype("float64")
+        frames[i]  = np.expand_dims(frames[i] , axis=0)
+        frames[i]  = vgg19.preprocess_input(frames[i])
+    return frames
 
 
 '''
@@ -180,28 +191,27 @@ Save the newly generated and deprocessed images.
 '''
 def styleTransfer(cData, sData, tData):
     print("   Building transfer model.")
-    print("cData shape:" , cData.shape)
+    print("Number of frames: ", len(cData))
+    print("cData frame shape:" , cData[0].shape)
     print("sData shape:" , sData.shape)
-    print("tData shape: ", tData.shape)
-    contentTensor = K.variable(cData)
+    print("tData shape: ", tData[0].shape)
+    styleLayerNames = ["block1_conv1", "block2_conv1", "block3_conv1", "block4_conv1", "block5_conv1"]
+    contentLayerName = "block5_conv2"
+    
+    contentTensor = K.variable(cData[0])
     styleTensor = K.variable(sData)
     genTensor = K.placeholder((1, CONTENT_IMG_H, CONTENT_IMG_W, 3))
     inputTensor = K.concatenate([contentTensor, styleTensor, genTensor], axis=0)
-    # model = None   #TODO: implement.
     model = vgg19.VGG19(include_top=False, weights="imagenet",input_tensor=inputTensor)
     outputDict = dict([(layer.name, layer.output) for layer in model.layers])
-    print("   VGG19 model loaded.")
-    loss = 0.0
-    styleLayerNames = ["block1_conv1", "block2_conv1", "block3_conv1", "block4_conv1", "block5_conv1"]
-    contentLayerName = "block5_conv2"
-    print("   Calculating content loss.")
     contentLayer = outputDict[contentLayerName]
     contentOutput = contentLayer[0, :, :, :]
     genOutput = contentLayer[2, :, :, :]
-    
-    frames_len = len(cData[0]) #cData should contain individual frames
-    
+    frames_len = len(cData) #cData should contain individual frames
+    output_frames = []
     for i in range(frames_len):
+        
+        loss = 0.0
         loss += CONTENT_WEIGHT * contentLoss(contentOutput,genOutput)
         for layerName in styleLayerNames:
             # loss += None   #TODO: implement.
@@ -219,19 +229,21 @@ def styleTransfer(cData, sData, tData):
         global f_outputs
         f_outputs = K.function([genTensor], outputs)
     
-        for i in range(TRANSFER_ROUNDS):
+        for _ in range(TRANSFER_ROUNDS):
             print("   Step %d." % i)
             #TODO: perform gradient descent using fmin_l_bfgs_b.
-            cData, tLoss, info = fmin_l_bfgs_b(evaluator.loss, cData.flatten(),
+            cData, tLoss, info = fmin_l_bfgs_b(evaluator.loss, cData[i].flatten(),
                                         fprime=evaluator.grads, maxfun=100, maxiter=100, iprint=1)
             print("      Loss: %f." % tLoss)
-            img = deprocessImage(cData.copy())
+            img = deprocessImage(cData[i].copy())
             print(img.shape)
             # saveFile = "finalOut%d.png" % i  #TODO: Implement.
             # imsave(saveFile, img)   #Uncomment when everything is working right.
-            out.write(img)
-            # print("      Image saved to \"%s\"." % saveFile)
-        out.release()
+            output_frames.append(img)
+
+    for frame in output_frames:
+        out.write(frame)
+    out.release()
     print("   Transfer complete.")
 
 
@@ -243,10 +255,10 @@ def styleTransfer(cData, sData, tData):
 def main():
     print("Starting style transfer program.")
     raw = getRawData()
-    # cData = preprocessData(raw[0])   # Content image.
-    # sData = preprocessData(raw[1])   # Style image.
-    # tData = preprocessData(raw[2])   # Transfer image.
-    # styleTransfer(cData, sData, tData)
+    cData = preprocessDataBuffer(raw[0])   # Content image.
+    sData = preprocessData(raw[1])   # Style image.
+    tData = preprocessDataBuffer(raw[2])   # Transfer image.
+    styleTransfer(cData, sData, tData)
     print("Done. Goodbye.")
 
 
