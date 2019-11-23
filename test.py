@@ -210,7 +210,8 @@ def styleTransfer(cData, sData, tData):
     frames_len = len(cData) #cData should contain individual frames
     output_frames = []
     for i in range(frames_len):
-        
+        print("Frame " + str(i))
+        current_frame = cData[i]
         loss = 0.0
         loss += CONTENT_WEIGHT * contentLoss(contentOutput,genOutput)
         for layerName in styleLayerNames:
@@ -232,10 +233,10 @@ def styleTransfer(cData, sData, tData):
         for _ in range(TRANSFER_ROUNDS):
             print("   Step %d." % i)
             #TODO: perform gradient descent using fmin_l_bfgs_b.
-            cData, tLoss, info = fmin_l_bfgs_b(evaluator.loss, cData[i].flatten(),
-                                        fprime=evaluator.grads, maxfun=100, maxiter=100, iprint=1)
+            current_frame, tLoss, info = fmin_l_bfgs_b(evaluator.loss, current_frame.flatten(),
+                                        fprime=evaluator.grads, maxfun=10, maxiter=10, iprint=1)
             print("      Loss: %f." % tLoss)
-            img = deprocessImage(cData[i].copy())
+            img = deprocessImage(current_frame.copy())
             print(img.shape)
             # saveFile = "finalOut%d.png" % i  #TODO: Implement.
             # imsave(saveFile, img)   #Uncomment when everything is working right.
