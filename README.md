@@ -33,5 +33,7 @@ Rest of our task is creating a presentation. Once we're done with creating a pre
 
 ## References:
 https://towardsdatascience.com/real-time-video-neural-style-transfer-9f6f84590832
+
 https://medium.com/coinmonks/real-time-video-style-transfer-fast-accurate-and-temporally-consistent-863a175e06dc
+
 https://blog.paperspace.com/creating-your-own-style-transfer-mirror/
