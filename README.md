@@ -30,6 +30,9 @@ The key idea was receiving the video and read each of the frame to manipulate. A
 
 Rest of our task is creating a presentation. Once we're done with creating a presentation, we're going to share with the pdf file soon as well.
 
+## Presentation:
+https://docs.google.com/presentation/d/18Wo3nMuz9dip2FkUr7qaBArnTmTD6kZAgfA-CB-Cz54/edit?usp=sharing
+
 
 ## References:
 https://towardsdatascience.com/real-time-video-neural-style-transfer-9f6f84590832
